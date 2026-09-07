@@ -1,0 +1,12 @@
+From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Weekly project sync
+Date: Mon, 7 Sep 2026 09:00:00 +0000
+Authentication-Results: mx.example.com; spf=pass smtp.mailfrom=example.com; dkim=pass; dmarc=pass
+
+Hi Bob,
+
+Please find the weekly project sync notes below. No action is required before our meeting.
+
+Regards,
+Alice

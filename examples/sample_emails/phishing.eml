@@ -1,0 +1,8 @@
+From: Microsoft Security <security@micros0ft-support.example>
+To: user@example.com
+Subject: Urgent: Verify your mailbox now
+Date: Mon, 7 Sep 2026 10:00:00 +0000
+Authentication-Results: mx.example.com; spf=fail smtp.mailfrom=micros0ft-support.example; dkim=fail; dmarc=fail
+Content-Type: text/html; charset=utf-8
+
+<html><head><meta http-equiv="refresh" content="0;url=https://bit.ly/verify-now"></head><body><div style="display:none">hidden text</div><p>Your mailbox will be closed today. Verify your password immediately: https://bit.ly/verify-now</p></body></html>

@@ -1,0 +1,56 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test and lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+tests/
+
+# Build artifacts
+dist/
+build/
+site/
+*.egg-info/
+pip-wheel-metadata/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local data and database files
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Logs
+*.log
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Node / frontend dependencies if added later
+node_modules/
+
+# Claude local session artifacts
+.claude/
+
+.dev/
+data/

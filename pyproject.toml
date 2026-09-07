@@ -1,0 +1,8 @@
+[project]
+name = "email-ai-judgment"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain-core>=1.6.2",
+    "pydantic>=2.13.5",
+]

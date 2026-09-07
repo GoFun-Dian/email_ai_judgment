@@ -1,0 +1,7 @@
+From: CEO <ceo@examp1e.com>
+To: finance@example.com
+Subject: Immediate wire transfer required
+Date: Mon, 7 Sep 2026 11:00:00 +0000
+Authentication-Results: mx.example.com; spf=softfail smtp.mailfrom=examp1e.com
+
+I am in a confidential meeting. Please wire 50,000 USD to the new supplier account today. This is urgent and must be handled quietly.
