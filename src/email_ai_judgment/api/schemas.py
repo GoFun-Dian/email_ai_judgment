@@ -21,7 +21,7 @@ class BatchJudgeRequest(BaseModel):
 class ExplainRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     result: JudgmentResult
-    format: Literal["markdown", "text"] = "markdown"
+    format: Literal["markdown", "text"] = "text"
 
 class RecommendRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")

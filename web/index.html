@@ -325,6 +325,7 @@
 
                     <div class="actions">
                         <button id="exSubmit" class="primary" type="button">生成解释</button>
+                        <button id="exStream" class="primary" type="button">流式生成</button>
                         <button id="exSample" class="secondary" type="button">填充示例</button>
                         <button id="exClear" class="secondary" type="button">清空</button>
                     </div>
@@ -337,6 +338,7 @@
                     <p class="result-summary">下方展示接口返回的完整 JSON 包装结构；成功时，<code>data</code> 字段中会包含解释文本。</p>
                     <div class="meta">
                         <div class="pill">接口：POST /api/v1/explain</div>
+                        <div class="pill">流式：POST /api/v1/explain/stream</div>
                         <div class="pill">返回：JudgmentResponse&lt;str&gt;</div>
                     </div>
                     <pre id="exResult">尚未发起请求。</pre>
@@ -926,6 +928,7 @@
         // ---------- 研判解释 ----------
         (function initExplain() {
             const API_URL = 'http://127.0.0.1:8000/api/v1/explain';
+            const STREAM_API_URL = 'http://127.0.0.1:8000/api/v1/explain/stream';
             const SAMPLE_RESULT = {
                 email_id: 'mail-001',
                 threat_score: 82,
@@ -954,6 +957,7 @@
             const requestBody = document.getElementById('exRequest');
             const formatSelect = document.getElementById('exFormat');
             const submitBtn = document.getElementById('exSubmit');
+            const streamBtn = document.getElementById('exStream');
             const sampleBtn = document.getElementById('exSample');
             const clearBtn = document.getElementById('exClear');
             const statusEl = document.getElementById('exStatus');
@@ -1014,6 +1018,120 @@
                 }
             }
 
+            function parseSseFrame(frame) {
+                let event = 'message';
+                const dataLines = [];
+
+                for (const line of frame.split('\n')) {
+                    if (line.startsWith('event:')) {
+                        event = line.slice(6).trim();
+                    } else if (line.startsWith('data:')) {
+                        dataLines.push(line.slice(5).trimStart());
+                    }
+                }
+
+                return { event, data: dataLines.join('\n') };
+            }
+
+            async function submitExplainStream() {
+                let payload;
+                try {
+                    payload = JSON.parse(requestBody.value);
+                } catch (error) {
+                    setStatus(`JSON 解析失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                streamBtn.disabled = true;
+                sampleBtn.disabled = true;
+                clearBtn.disabled = true;
+                setStatus('正在流式生成解释，请稍候...', 'loading');
+                resultEl.textContent = '';
+
+                let accumulated = '';
+                let streamSucceeded = false;
+
+                function consume(frame) {
+                    const { event, data } = parseSseFrame(frame);
+                    if (!data) {
+                        return;
+                    }
+
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(data);
+                    } catch (error) {
+                        return;
+                    }
+
+                    if (event === 'delta') {
+                        accumulated += parsed.data || '';
+                        resultEl.textContent = accumulated;
+                    } else if (event === 'done') {
+                        streamSucceeded = true;
+                    } else if (event === 'error') {
+                        setStatus('流式生成出错。', 'error');
+                        resultEl.textContent = prettyPrint({ success: false, error: parsed.error });
+                    }
+                }
+
+                try {
+                    const response = await fetch(STREAM_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!response.ok || !response.body) {
+                        const text = response.ok ? '' : await response.text();
+                        setStatus(`流式请求失败：HTTP ${response.status}`, 'error');
+                        resultEl.textContent = text || prettyPrint({ success: false, error: { message: `HTTP ${response.status}` } });
+                        return;
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    function processBuffer() {
+                        let boundary;
+                        while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+                            const frame = buffer.slice(0, boundary);
+                            buffer = buffer.slice(boundary + 2);
+                            consume(frame);
+                        }
+                    }
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) {
+                            break;
+                        }
+                        buffer += decoder.decode(value, { stream: true });
+                        processBuffer();
+                    }
+
+                    buffer += decoder.decode();
+                    processBuffer();
+
+                    if (streamSucceeded) {
+                        setStatus('流式解释生成完成。', 'success');
+                    }
+                } catch (error) {
+                    setStatus(`流式调用失败：${error.message}`, 'error');
+                    if (resultEl.textContent === '') {
+                        resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                    }
+                } finally {
+                    submitBtn.disabled = false;
+                    streamBtn.disabled = false;
+                    sampleBtn.disabled = false;
+                    clearBtn.disabled = false;
+                }
+            }
+
             formatSelect.addEventListener('change', () => {
                 if (!requestBody.value.trim()) {
                     loadSample();
@@ -1029,6 +1147,7 @@
             });
 
             submitBtn.addEventListener('click', submitExplain);
+            streamBtn.addEventListener('click', submitExplainStream);
             sampleBtn.addEventListener('click', loadSample);
             clearBtn.addEventListener('click', () => {
                 requestBody.value = '';

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from typing import Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -36,3 +37,10 @@ class JudgmentExplainer:
         except Exception as exc:
             err = LLMInvocationError("judgment_explainer", "Explanation LLM call failed", repr(exc)).to_error()
             return JudgmentResponse[str](success=False, data=None, error=err)
+
+    async def astream(self, result: JudgmentResult, format: Literal["markdown", "text"] = "text") -> AsyncIterator[str]:
+        chain = self.prompt | self.llm
+        async for chunk in chain.astream({"format": format, "result": result.model_dump_json(indent=2)}):
+            text = chunk.content
+            if text:
+                yield str(text)

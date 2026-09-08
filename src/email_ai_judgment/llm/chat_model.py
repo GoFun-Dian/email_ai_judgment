@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from pydantic import Field
 
 from email_ai_judgment.config.settings import Settings
@@ -19,6 +19,15 @@ def default_dimension_json(score: float = 5.0, confidence: float = 0.8, summary:
         '{"score": %.1f, "confidence": %.2f, "threat_types": [], '
         '"summary": "%s", "evidence": ["未发现高风险指标"]}'
     ) % (score, confidence, summary)
+
+
+_STREAM_CHUNK_SIZE = 8
+
+
+def _chunks(text: str, size: int = _STREAM_CHUNK_SIZE) -> Iterable[str]:
+    for i in range(0, len(text), size):
+        yield text[i:i + size]
+
 
 class MockChatModel(BaseChatModel):
     responses: list[str] = Field(default_factory=lambda: [default_dimension_json()])
@@ -71,6 +80,38 @@ class MockChatModel(BaseChatModel):
         if self.timeout_on_call == self.calls:
             raise asyncio.TimeoutError("mock llm timeout")
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self._response_for_call()))])
+
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> Iterable[ChatGenerationChunk]:
+        self.calls += 1
+        if self.fail_on_call == self.calls:
+            raise RuntimeError("mock llm failure")
+        if self.timeout_on_call == self.calls:
+            raise asyncio.TimeoutError("mock llm timeout")
+        for piece in _chunks(self._response_for_call()):
+            yield ChatGenerationChunk(message=AIMessageChunk(content=piece))
+
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        self.calls += 1
+        if self.delay_seconds:
+            await asyncio.sleep(self.delay_seconds)
+        if self.fail_on_call == self.calls:
+            raise RuntimeError("mock llm failure")
+        if self.timeout_on_call == self.calls:
+            raise asyncio.TimeoutError("mock llm timeout")
+        for piece in _chunks(self._response_for_call()):
+            yield ChatGenerationChunk(message=AIMessageChunk(content=piece))
 
 def create_chat_model(settings: Settings) -> BaseChatModel:
     if settings.llm_provider == "mock":
