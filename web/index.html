@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>邮件 AI 研判平台</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f6f8fc;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #dbe2ea;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #059669;
+            --error: #dc2626;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(180deg, #edf3ff 0%, var(--bg) 100%);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        .header { margin-bottom: 24px; }
+        .header h1 { margin: 0 0 8px; font-size: 30px; }
+        .header p { margin: 0; color: var(--muted); line-height: 1.7; }
+
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .tab {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 10px 18px;
+            background: var(--panel);
+            color: var(--muted);
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .panel { display: none; }
+        .panel.active { display: grid; gap: 20px; }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .card h2 {
+            margin: 0 0 16px;
+            font-size: 18px;
+        }
+
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .field small {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        input[type="text"],
+        input[type="file"],
+        textarea,
+        select {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fff;
+            color: var(--text);
+            font: inherit;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        input[type="text"],
+        input[type="file"],
+        select {
+            padding: 12px 14px;
+        }
+
+        textarea {
+            padding: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        textarea.email-input { min-height: 300px; }
+        textarea.code-input { min-height: 320px; }
+        textarea.json-input { min-height: 140px; }
+        textarea.comment-input { min-height: 90px; }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button.primary { background: var(--primary); color: #fff; }
+        button.primary:hover { background: var(--primary-hover); }
+        button.secondary { background: #eef2ff; color: #3730a3; }
+        button.secondary:hover { background: #e0e7ff; }
+        button:disabled { cursor: not-allowed; opacity: 0.65; }
+
+        .status {
+            margin-top: 12px;
+            min-height: 20px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .status.loading { color: var(--primary); }
+        .status.success { color: var(--success); }
+        .status.error { color: var(--error); }
+
+        .result-summary {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        pre {
+            margin: 0;
+            padding: 16px;
+            min-height: 260px;
+            max-height: 60vh;
+            overflow: auto;
+            border-radius: 12px;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .hint {
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>邮件 AI 研判平台</h1>
+            <p>通过顶部标签切换功能模块，统一调用本地 <code>http://127.0.0.1:8000</code> 提供的研判、解释、推荐与反馈接口。</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab active" type="button" data-tab="judgment">邮件研判</button>
+            <button class="tab" type="button" data-tab="explain">研判解释</button>
+            <button class="tab" type="button" data-tab="recommend">规则推荐</button>
+            <button class="tab" type="button" data-tab="feedback">人工反馈</button>
+            <button class="tab" type="button" data-tab="stats">反馈统计</button>
+            <button class="tab" type="button" data-tab="export">反馈导出</button>
+        </nav>
+
+        <main>
+            <!-- 邮件研判 -->
+            <section class="panel active" id="panel-judgment">
+                <div class="card">
+                    <h2>输入邮件</h2>
+
+                    <div class="field">
+                        <label for="jdEmailId">邮件 ID</label>
+                        <input id="jdEmailId" type="text" placeholder="可选，例如 mail-001">
+                    </div>
+
+                    <div class="field">
+                        <label for="jdEmailFile">上传邮件文件</label>
+                        <input id="jdEmailFile" type="file" accept=".eml,.txt,.mail,.msg,text/plain,message/rfc822">
+                        <small>选择文件后会自动读取为文本内容，并填充到下方输入框。</small>
+                    </div>
+
+                    <div class="field">
+                        <label for="jdEmailContent">邮件原文</label>
+                        <textarea id="jdEmailContent" class="email-input" placeholder="在这里粘贴邮件原文，或通过上方上传 .eml 文件自动填充。"></textarea>
+                        <small>接口会以 JSON 方式提交 <code>{"email_id": "...", "raw": "..."}</code>。</small>
+                    </div>
+
+                    <div class="actions">
+                        <button id="jdJudgeBtn" class="primary">开始研判</button>
+                        <button id="jdClearBtn" class="secondary" type="button">清空内容</button>
+                    </div>
+
+                    <div id="jdStatus" class="status">等待上传或粘贴邮件内容。</div>
+                    <div class="hint">
+                        提示：如果前端不是由同一台本地服务提供，请确保接口可访问，或者把页面放到与后端同源的静态目录中。
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>研判结果</h2>
+                    <p class="result-summary">下方会展示接口返回的完整 JSON；当结果较长时，这一块会独立滚动，不会把页面撑乱。</p>
+                    <div class="meta">
+                        <div class="pill">接口：POST /api/v1/judgment</div>
+                        <div class="pill">返回：JudgmentResponse&lt;JudgmentResult&gt;</div>
+                    </div>
+                    <pre id="jdResult">尚未发起研判。</pre>
+                </div>
+
+                <div class="card">
+                    <h2>批量研判</h2>
+
+                    <div class="field">
+                        <label for="jdBatchContent">邮件数组 JSON</label>
+                        <textarea id="jdBatchContent" class="code-input" placeholder='[{"email_id": "mail-001", "raw": "..."}]' spellcheck="false"></textarea>
+                        <small>接口以 JSON 方式提交 <code>{"emails": [{"email_id": "...", "raw": "..."}, ...]}</code>，也支持直接粘贴数组。</small>
+                    </div>
+
+                    <div class="actions">
+                        <button id="jdBatchBtn" class="primary">批量研判</button>
+                        <button id="jdBatchSampleBtn" class="secondary" type="button">填充示例</button>
+                        <button id="jdBatchClearBtn" class="secondary" type="button">清空</button>
+                    </div>
+
+                    <div id="jdBatchStatus" class="status">等待输入邮件数组。</div>
+                </div>
+
+                <div class="card">
+                    <h2>批量研判结果</h2>
+                    <p class="result-summary">下方会展示接口返回的完整数组；每封邮件对应一个 <code>JudgmentResponse</code> 包装，单封内部 Fail-Fast、批量内相互隔离。</p>
+                    <div class="meta">
+                        <div class="pill">接口：POST /api/v1/judgment/batch</div>
+                        <div class="pill">返回：list&lt;JudgmentResponse&lt;JudgmentResult&gt;&gt;</div>
+                    </div>
+                    <pre id="jdBatchResult">尚未发起批量研判。</pre>
+                </div>
+            </section>
+
+            <!-- 研判解释 -->
+            <section class="panel" id="panel-explain">
+                <div class="card">
+                    <div class="field">
+                        <label for="exFormat">输出格式</label>
+                        <select id="exFormat">
+                            <option value="markdown">markdown</option>
+                            <option value="text">text</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="exRequest">请求体 JSON</label>
+                        <textarea id="exRequest" class="code-input" spellcheck="false"></textarea>
+                        <small>请求结构为 <code>{"result": JudgmentResult, "format": "markdown|text"}</code>。</small>
+                    </div>
+
+                    <div class="actions">
+                        <button id="exSubmit" class="primary" type="button">生成解释</button>
+                        <button id="exSample" class="secondary" type="button">填充示例</button>
+                        <button id="exClear" class="secondary" type="button">清空</button>
+                    </div>
+
+                    <div id="exStatus" class="status">等待输入 JudgmentResult。</div>
+                </div>
+
+                <div class="card">
+                    <h2>接口响应</h2>
+                    <p class="result-summary">下方展示接口返回的完整 JSON 包装结构；成功时，<code>data</code> 字段中会包含解释文本。</p>
+                    <div class="meta">
+                        <div class="pill">接口：POST /api/v1/explain</div>
+                        <div class="pill">返回：JudgmentResponse&lt;str&gt;</div>
+                    </div>
+                    <pre id="exResult">尚未发起请求。</pre>
+                </div>
+            </section>
+
+            <!-- 规则推荐 -->
+            <section class="panel" id="panel-recommend">
+                <div class="card">
+                    <div class="field">
+                        <label for="rcRequest">请求体 JSON</label>
+                        <textarea id="rcRequest" class="code-input" spellcheck="false"></textarea>
+                        <small>请求结构为 <code>{"samples": [{"email_id": "...", "raw_email": "...", "label": "...", "notes": "..."}]}</code>。</small>
+                    </div>
+
+                    <div class="actions">
+                        <button id="rcSubmit" class="primary" type="button">生成推荐</button>
+                        <button id="rcSample" class="secondary" type="button">填充示例</button>
+                        <button id="rcClear" class="secondary" type="button">清空</button>
+                    </div>
+
+                    <div id="rcStatus" class="status">等待输入已标注样本。</div>
+                </div>
+
+                <div class="card">
+                    <h2>接口响应</h2>
+                    <p class="result-summary">下方展示接口返回的完整 JSON 包装结构；成功时，<code>data</code> 字段中包含 <code>RuleSuggestion</code>。推荐结果仅供参考，不会修改现有规则。</p>
+                    <div class="meta">
+                        <div class="pill">接口：POST /api/v1/recommend</div>
+                        <div class="pill">返回：JudgmentResponse&lt;RuleSuggestion&gt;</div>
+                    </div>
+                    <pre id="rcResult">尚未发起请求。</pre>
+                </div>
+            </section>
+
+            <!-- 人工反馈 -->
+            <section class="panel" id="panel-feedback">
+                <div class="card">
+                    <div class="field">
+                        <label for="fbEmailId">邮件 ID</label>
+                        <input id="fbEmailId" type="text" placeholder="必填，例如 mail-001">
+                    </div>
+
+                    <div class="field">
+                        <label for="fbLabel">反馈类型</label>
+                        <select id="fbLabel">
+                            <option value="confirmed">confirmed - 确认（研判正确）</option>
+                            <option value="corrected">corrected - 修正（结果需修正）</option>
+                            <option value="false_positive">false_positive - 误报</option>
+                            <option value="false_negative">false_negative - 漏报</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="fbComment">备注</label>
+                        <textarea id="fbComment" class="comment-input" placeholder="可选，填写反馈说明。"></textarea>
+                    </div>
+
+                    <div class="field">
+                        <label for="fbOriginal">原始研判结果（JSON，可选）</label>
+                        <textarea id="fbOriginal" class="json-input" spellcheck="false" placeholder='{"email_id": "...", "threat_score": 82, ...}'></textarea>
+                        <small>可粘贴原始 <code>JudgmentResult</code>，留空则不提交。</small>
+                    </div>
+
+                    <div class="field">
+                        <label for="fbCorrected">修正后结果（JSON，可选）</label>
+                        <textarea id="fbCorrected" class="json-input" spellcheck="false" placeholder='{"email_id": "...", "threat_level": "LOW", ...}'></textarea>
+                        <small>可粘贴人工修正后的结果，留空则不提交。</small>
+                    </div>
+
+                    <div class="actions">
+                        <button id="fbSubmit" class="primary" type="button">提交反馈</button>
+                        <button id="fbSample" class="secondary" type="button">填充示例</button>
+                        <button id="fbClear" class="secondary" type="button">清空</button>
+                    </div>
+
+                    <div id="fbStatus" class="status">等待填写反馈内容。</div>
+                </div>
+
+                <div class="card">
+                    <h2>接口响应</h2>
+                    <p class="result-summary">下方展示接口返回的完整 JSON 包装结构；成功时，<code>data</code> 字段中包含写入后的 <code>FeedbackRecord</code>。</p>
+                    <div class="meta">
+                        <div class="pill">接口：POST /api/v1/feedback</div>
+                        <div class="pill">返回：JudgmentResponse&lt;FeedbackRecord&gt;</div>
+                    </div>
+                    <pre id="fbResult">尚未发起请求。</pre>
+                </div>
+            </section>
+
+            <!-- 反馈统计 -->
+            <section class="panel" id="panel-stats">
+                <div class="card">
+                    <div class="actions">
+                        <button id="stFetch" class="primary" type="button">获取统计</button>
+                    </div>
+                    <div id="stStatus" class="status">等待发起请求。</div>
+                </div>
+
+                <div class="card">
+                    <h2>接口响应</h2>
+                    <p class="result-summary">下方展示接口返回的完整 JSON 包装结构；成功时，<code>data</code> 字段中包含各类别数量映射。</p>
+                    <div class="meta">
+                        <div class="pill">接口：GET /api/v1/feedback/stats</div>
+                        <div class="pill">返回：JudgmentResponse&lt;dict[str, int]&gt;</div>
+                    </div>
+                    <pre id="stResult">尚未发起请求。</pre>
+                </div>
+            </section>
+
+            <!-- 反馈导出 -->
+            <section class="panel" id="panel-export">
+                <div class="card">
+                    <div class="actions">
+                        <button id="epFetch" class="primary" type="button">导出反馈</button>
+                        <button id="epDownload" class="secondary" type="button">下载 .jsonl</button>
+                    </div>
+                    <div id="epStatus" class="status">等待发起请求。</div>
+                </div>
+
+                <div class="card">
+                    <h2>接口响应</h2>
+                    <p class="result-summary">下方展示接口返回的完整 JSON 包装结构；成功时，<code>data</code> 字段中包含 JSONL 文本。</p>
+                    <div class="meta">
+                        <div class="pill">接口：GET /api/v1/feedback/export</div>
+                        <div class="pill">返回：JudgmentResponse&lt;str&gt;</div>
+                    </div>
+                    <pre id="epResult">尚未发起请求。</pre>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // ---------- 共享工具 ----------
+        function prettyPrint(value) {
+            return JSON.stringify(value, null, 2);
+        }
+
+        async function readResponse(response) {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                return response.json();
+            }
+            return {
+                success: response.ok,
+                data: await response.text(),
+                error: response.ok ? null : { message: `HTTP ${response.status}` },
+            };
+        }
+
+        // ---------- 顶部标签切换 ----------
+        (function initTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            const panels = document.querySelectorAll('.panel');
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach((t) => t.classList.remove('active'));
+                    panels.forEach((p) => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    const panel = document.getElementById(`panel-${tab.dataset.tab}`);
+                    if (panel) {
+                        panel.classList.add('active');
+                    }
+                });
+            });
+        })();
+
+        // ---------- 邮件研判 ----------
+        (function initJudgment() {
+            const API_URL = 'http://127.0.0.1:8000/api/v1/judgment';
+            const BATCH_API_URL = 'http://127.0.0.1:8000/api/v1/judgment/batch';
+
+            const emailFile = document.getElementById('jdEmailFile');
+            const emailContent = document.getElementById('jdEmailContent');
+            const emailId = document.getElementById('jdEmailId');
+            const judgeBtn = document.getElementById('jdJudgeBtn');
+            const clearBtn = document.getElementById('jdClearBtn');
+            const statusEl = document.getElementById('jdStatus');
+            const resultEl = document.getElementById('jdResult');
+
+            const batchContent = document.getElementById('jdBatchContent');
+            const batchBtn = document.getElementById('jdBatchBtn');
+            const batchSampleBtn = document.getElementById('jdBatchSampleBtn');
+            const batchClearBtn = document.getElementById('jdBatchClearBtn');
+            const batchStatus = document.getElementById('jdBatchStatus');
+            const batchResult = document.getElementById('jdBatchResult');
+
+            const BATCH_SAMPLE = [
+                {
+                    email_id: 'mail-batch-001',
+                    raw: 'From: a@example.com\nTo: b@example.com\nSubject: hello\n\nhello',
+                },
+                {
+                    email_id: 'mail-batch-002',
+                    raw: 'From: attacker@evil.com\nTo: victim@example.com\nSubject: 紧急更新密码\n\n请立即点击链接更新您的密码。',
+                },
+            ];
+
+            let lastAutoEmailId = '';
+
+            function setStatus(message, type = '') {
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`.trim();
+            }
+
+            function setBatchStatus(message, type = '') {
+                batchStatus.textContent = message;
+                batchStatus.className = `status ${type}`.trim();
+            }
+
+            function md5(input) {
+                function rotateLeft(value, shift) {
+                    return (value << shift) | (value >>> (32 - shift));
+                }
+
+                function addUnsigned(left, right) {
+                    const left16 = left & 0xffff;
+                    const right16 = right & 0xffff;
+                    const left32 = left >>> 16;
+                    const right32 = right >>> 16;
+                    const low = (left16 + right16) & 0xffff;
+                    const high = (left32 + right32 + ((left16 + right16) >>> 16)) & 0xffff;
+                    return (high << 16) | low;
+                }
+
+                function cmn(q, a, b, x, s, t) {
+                    return addUnsigned(rotateLeft(addUnsigned(addUnsigned(a, q), addUnsigned(x, t)), s), b);
+                }
+
+                function ff(a, b, c, d, x, s, t) {
+                    return cmn((b & c) | (~b & d), a, b, x, s, t);
+                }
+
+                function gg(a, b, c, d, x, s, t) {
+                    return cmn((b & d) | (c & ~d), a, b, x, s, t);
+                }
+
+                function hh(a, b, c, d, x, s, t) {
+                    return cmn(b ^ c ^ d, a, b, x, s, t);
+                }
+
+                function ii(a, b, c, d, x, s, t) {
+                    return cmn(c ^ (b | ~d), a, b, x, s, t);
+                }
+
+                function utf8Encode(value) {
+                    return unescape(encodeURIComponent(value));
+                }
+
+                function toWordArray(str) {
+                    const length = str.length;
+                    const words = [];
+                    for (let i = 0; i < length; i += 1) {
+                        words[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
+                    }
+                    words[length >> 2] |= 0x80 << ((length % 4) * 8);
+                    words[((length + 8) >> 6) * 16 + 14] = length * 8;
+                    return words;
+                }
+
+                function wordToHex(value) {
+                    let hex = '';
+                    for (let i = 0; i < 4; i += 1) {
+                        const byte = (value >>> (i * 8)) & 0xff;
+                        hex += (`0${byte.toString(16)}`).slice(-2);
+                    }
+                    return hex;
+                }
+
+                const message = utf8Encode(input);
+                const x = toWordArray(message);
+                let a = 0x67452301;
+                let b = 0xefcdab89;
+                let c = 0x98badcfe;
+                let d = 0x10325476;
+
+                for (let i = 0; i < x.length; i += 16) {
+                    const aa = a;
+                    const bb = b;
+                    const cc = c;
+                    const dd = d;
+
+                    a = ff(a, b, c, d, x[i + 0] || 0, 7, 0xd76aa478);
+                    d = ff(d, a, b, c, x[i + 1] || 0, 12, 0xe8c7b756);
+                    c = ff(c, d, a, b, x[i + 2] || 0, 17, 0x242070db);
+                    b = ff(b, c, d, a, x[i + 3] || 0, 22, 0xc1bdceee);
+                    a = ff(a, b, c, d, x[i + 4] || 0, 7, 0xf57c0faf);
+                    d = ff(d, a, b, c, x[i + 5] || 0, 12, 0x4787c62a);
+                    c = ff(c, d, a, b, x[i + 6] || 0, 17, 0xa8304613);
+                    b = ff(b, c, d, a, x[i + 7] || 0, 22, 0xfd469501);
+                    a = ff(a, b, c, d, x[i + 8] || 0, 7, 0x698098d8);
+                    d = ff(d, a, b, c, x[i + 9] || 0, 12, 0x8b44f7af);
+                    c = ff(c, d, a, b, x[i + 10] || 0, 17, 0xffff5bb1);
+                    b = ff(b, c, d, a, x[i + 11] || 0, 22, 0x895cd7be);
+                    a = ff(a, b, c, d, x[i + 12] || 0, 7, 0x6b901122);
+                    d = ff(d, a, b, c, x[i + 13] || 0, 12, 0xfd987193);
+                    c = ff(c, d, a, b, x[i + 14] || 0, 17, 0xa679438e);
+                    b = ff(b, c, d, a, x[i + 15] || 0, 22, 0x49b40821);
+
+                    a = gg(a, b, c, d, x[i + 1] || 0, 5, 0xf61e2562);
+                    d = gg(d, a, b, c, x[i + 6] || 0, 9, 0xc040b340);
+                    c = gg(c, d, a, b, x[i + 11] || 0, 14, 0x265e5a51);
+                    b = gg(b, c, d, a, x[i + 0] || 0, 20, 0xe9b6c7aa);
+                    a = gg(a, b, c, d, x[i + 5] || 0, 5, 0xd62f105d);
+                    d = gg(d, a, b, c, x[i + 10] || 0, 9, 0x02441453);
+                    c = gg(c, d, a, b, x[i + 15] || 0, 14, 0xd8a1e681);
+                    b = gg(b, c, d, a, x[i + 4] || 0, 20, 0xe7d3fbc8);
+                    a = gg(a, b, c, d, x[i + 9] || 0, 5, 0x21e1cde6);
+                    d = gg(d, a, b, c, x[i + 14] || 0, 9, 0xc33707d6);
+                    c = gg(c, d, a, b, x[i + 3] || 0, 14, 0xf4d50d87);
+                    b = gg(b, c, d, a, x[i + 8] || 0, 20, 0x455a14ed);
+                    a = gg(a, b, c, d, x[i + 13] || 0, 5, 0xa9e3e905);
+                    d = gg(d, a, b, c, x[i + 2] || 0, 9, 0xfcefa3f8);
+                    c = gg(c, d, a, b, x[i + 7] || 0, 14, 0x676f02d9);
+                    b = gg(b, c, d, a, x[i + 12] || 0, 20, 0x8d2a4c8a);
+
+                    a = hh(a, b, c, d, x[i + 5] || 0, 4, 0xfffa3942);
+                    d = hh(d, a, b, c, x[i + 8] || 0, 11, 0x8771f681);
+                    c = hh(c, d, a, b, x[i + 11] || 0, 16, 0x6d9d6122);
+                    b = hh(b, c, d, a, x[i + 14] || 0, 23, 0xfde5380c);
+                    a = hh(a, b, c, d, x[i + 1] || 0, 4, 0xa4beea44);
+                    d = hh(d, a, b, c, x[i + 4] || 0, 11, 0x4bdecfa9);
+                    c = hh(c, d, a, b, x[i + 7] || 0, 16, 0xf6bb4b60);
+                    b = hh(b, c, d, a, x[i + 10] || 0, 23, 0xbebfbc70);
+                    a = hh(a, b, c, d, x[i + 13] || 0, 4, 0x289b7ec6);
+                    d = hh(d, a, b, c, x[i + 0] || 0, 11, 0xeaa127fa);
+                    c = hh(c, d, a, b, x[i + 3] || 0, 16, 0xd4ef3085);
+                    b = hh(b, c, d, a, x[i + 6] || 0, 23, 0x04881d05);
+                    a = hh(a, b, c, d, x[i + 9] || 0, 4, 0xd9d4d039);
+                    d = hh(d, a, b, c, x[i + 12] || 0, 11, 0xe6db99e5);
+                    c = hh(c, d, a, b, x[i + 15] || 0, 16, 0x1fa27cf8);
+                    b = hh(b, c, d, a, x[i + 2] || 0, 23, 0xc4ac5665);
+
+                    a = ii(a, b, c, d, x[i + 0] || 0, 6, 0xf4292244);
+                    d = ii(d, a, b, c, x[i + 7] || 0, 10, 0x432aff97);
+                    c = ii(c, d, a, b, x[i + 14] || 0, 15, 0xab9423a7);
+                    b = ii(b, c, d, a, x[i + 5] || 0, 21, 0xfc93a039);
+                    a = ii(a, b, c, d, x[i + 12] || 0, 6, 0x655b59c3);
+                    d = ii(d, a, b, c, x[i + 3] || 0, 10, 0x8f0ccc92);
+                    c = ii(c, d, a, b, x[i + 10] || 0, 15, 0xffeff47d);
+                    b = ii(b, c, d, a, x[i + 1] || 0, 21, 0x85845dd1);
+                    a = ii(a, b, c, d, x[i + 8] || 0, 6, 0x6fa87e4f);
+                    d = ii(d, a, b, c, x[i + 15] || 0, 10, 0xfe2ce6e0);
+                    c = ii(c, d, a, b, x[i + 6] || 0, 15, 0xa3014314);
+                    b = ii(b, c, d, a, x[i + 13] || 0, 21, 0x4e0811a1);
+                    a = ii(a, b, c, d, x[i + 4] || 0, 6, 0xf7537e82);
+                    d = ii(d, a, b, c, x[i + 11] || 0, 10, 0xbd3af235);
+                    c = ii(c, d, a, b, x[i + 2] || 0, 15, 0x2ad7d2bb);
+                    b = ii(b, c, d, a, x[i + 9] || 0, 21, 0xeb86d391);
+
+                    a = addUnsigned(a, aa);
+                    b = addUnsigned(b, bb);
+                    c = addUnsigned(c, cc);
+                    d = addUnsigned(d, dd);
+                }
+
+                return [a, b, c, d].map(wordToHex).join('');
+            }
+
+            function extractMessageId(raw) {
+                const normalized = raw.replace(/\r\n/g, '\n');
+                const headerEnd = normalized.search(/\n\s*\n/);
+                const headerSection = headerEnd >= 0 ? normalized.slice(0, headerEnd) : normalized;
+                const lines = headerSection.split('\n');
+                let collecting = false;
+                const values = [];
+
+                for (const line of lines) {
+                    if (!collecting) {
+                        const match = line.match(/^message-id\s*:\s*(.*)$/i);
+                        if (match) {
+                            collecting = true;
+                            values.push(match[1]);
+                        }
+                        continue;
+                    }
+
+                    if (/^[ \t]/.test(line)) {
+                        values.push(line.trim());
+                        continue;
+                    }
+
+                    break;
+                }
+
+                let value = values.join(' ').trim();
+                if (!value) {
+                    return '';
+                }
+
+                if (value.startsWith('<') && value.endsWith('>')) {
+                    value = value.slice(1, -1).trim();
+                }
+
+                return value.trim();
+            }
+
+            function deriveEmailIdFromContent(raw) {
+                const messageId = extractMessageId(raw);
+                if (!messageId) {
+                    return '';
+                }
+                return md5(messageId);
+            }
+
+            function updateAutoEmailId() {
+                const raw = emailContent.value.trim();
+                const derivedEmailId = raw ? deriveEmailIdFromContent(raw) : '';
+
+                if (!derivedEmailId) {
+                    if (emailId.value.trim() === lastAutoEmailId) {
+                        emailId.value = '';
+                    }
+                    lastAutoEmailId = '';
+                    return;
+                }
+
+                const currentValue = emailId.value.trim();
+                if (!currentValue || currentValue === lastAutoEmailId) {
+                    emailId.value = derivedEmailId;
+                }
+                lastAutoEmailId = derivedEmailId;
+            }
+
+            emailContent.addEventListener('input', updateAutoEmailId);
+
+            emailId.addEventListener('input', () => {
+                if (emailId.value.trim() !== lastAutoEmailId) {
+                    return;
+                }
+                lastAutoEmailId = emailId.value.trim();
+            });
+
+            emailFile.addEventListener('change', async () => {
+                const file = emailFile.files && emailFile.files[0];
+                if (!file) {
+                    return;
+                }
+
+                try {
+                    const text = await file.text();
+                    emailContent.value = text;
+                    updateAutoEmailId();
+                    setStatus(`已加载文件：${file.name}`, 'success');
+                } catch (error) {
+                    setStatus(`读取文件失败：${error.message}`, 'error');
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                emailFile.value = '';
+                emailId.value = '';
+                emailContent.value = '';
+                lastAutoEmailId = '';
+                resultEl.textContent = '尚未发起研判。';
+                setStatus('内容已清空。');
+            });
+
+            judgeBtn.addEventListener('click', async () => {
+                const raw = emailContent.value.trim();
+                const derivedEmailId = emailId.value.trim() || deriveEmailIdFromContent(raw);
+
+                if (!raw) {
+                    setStatus('请先上传邮件文件或粘贴邮件原文。', 'error');
+                    return;
+                }
+
+                if (derivedEmailId && emailId.value.trim() === '') {
+                    emailId.value = derivedEmailId;
+                    lastAutoEmailId = derivedEmailId;
+                }
+
+                judgeBtn.disabled = true;
+                clearBtn.disabled = true;
+                setStatus('正在调用本地研判接口，请稍候...', 'loading');
+                resultEl.textContent = '请求处理中...';
+
+                try {
+                    const payload = { raw };
+                    if (derivedEmailId) {
+                        payload.email_id = derivedEmailId;
+                    }
+
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    const data = await response.json();
+                    resultEl.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        setStatus('研判完成。', 'success');
+                    } else {
+                        setStatus('研判完成，但返回了错误包装。', 'error');
+                    }
+                } catch (error) {
+                    setStatus(`调用失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({
+                        success: false,
+                        error: {
+                            message: error.message,
+                        },
+                    });
+                } finally {
+                    judgeBtn.disabled = false;
+                    clearBtn.disabled = false;
+                }
+            });
+
+            batchSampleBtn.addEventListener('click', () => {
+                batchContent.value = prettyPrint(BATCH_SAMPLE);
+                setBatchStatus('已填充批量示例数据。', 'success');
+            });
+
+            batchClearBtn.addEventListener('click', () => {
+                batchContent.value = '';
+                batchResult.textContent = '尚未发起批量研判。';
+                setBatchStatus('内容已清空。');
+            });
+
+            batchBtn.addEventListener('click', async () => {
+                let parsed;
+                try {
+                    parsed = JSON.parse(batchContent.value.trim());
+                } catch (error) {
+                    setBatchStatus(`JSON 解析失败：${error.message}`, 'error');
+                    batchResult.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                    return;
+                }
+
+                const emails = Array.isArray(parsed) ? parsed : parsed.emails;
+                if (!Array.isArray(emails) || emails.length === 0) {
+                    setBatchStatus('请输入非空的邮件数组。', 'error');
+                    return;
+                }
+
+                batchBtn.disabled = true;
+                batchSampleBtn.disabled = true;
+                batchClearBtn.disabled = true;
+                setBatchStatus('正在调用批量研判接口，请稍候...', 'loading');
+                batchResult.textContent = '请求处理中...';
+
+                try {
+                    const response = await fetch(BATCH_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ emails }),
+                    });
+                    const data = await response.json();
+                    batchResult.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setBatchStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    setBatchStatus(`批量研判完成，共 ${emails.length} 封。`, 'success');
+                } catch (error) {
+                    setBatchStatus(`调用失败：${error.message}`, 'error');
+                    batchResult.textContent = prettyPrint({
+                        success: false,
+                        error: {
+                            message: error.message,
+                        },
+                    });
+                } finally {
+                    batchBtn.disabled = false;
+                    batchSampleBtn.disabled = false;
+                    batchClearBtn.disabled = false;
+                }
+            });
+        })();
+
+        // ---------- 研判解释 ----------
+        (function initExplain() {
+            const API_URL = 'http://127.0.0.1:8000/api/v1/explain';
+            const SAMPLE_RESULT = {
+                email_id: 'mail-001',
+                threat_score: 82,
+                confidence: 0.91,
+                threat_level: 'HIGH',
+                threat_types: ['phishing', 'credential_theft'],
+                summary: '邮件伪装成内部通知，诱导用户点击链接并输入账号密码。',
+                evidence: [
+                    {
+                        dimension: 'phishing',
+                        description: '链接域名与发件域名不一致',
+                        contribution: 42,
+                    },
+                ],
+                dimension_scores: {
+                    phishing: {
+                        score: 92,
+                        confidence: 0.96,
+                        threat_types: ['phishing'],
+                        summary: '高风险钓鱼特征明显。',
+                        evidence: ['伪装品牌', '可疑链接'],
+                    },
+                },
+            };
+
+            const requestBody = document.getElementById('exRequest');
+            const formatSelect = document.getElementById('exFormat');
+            const submitBtn = document.getElementById('exSubmit');
+            const sampleBtn = document.getElementById('exSample');
+            const clearBtn = document.getElementById('exClear');
+            const statusEl = document.getElementById('exStatus');
+            const resultEl = document.getElementById('exResult');
+
+            function setStatus(message, type = '') {
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`.trim();
+            }
+
+            function loadSample() {
+                requestBody.value = prettyPrint({ result: SAMPLE_RESULT, format: formatSelect.value });
+                setStatus('已填充示例数据。', 'success');
+            }
+
+            async function submitExplain() {
+                let payload;
+                try {
+                    payload = JSON.parse(requestBody.value);
+                } catch (error) {
+                    setStatus(`JSON 解析失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                sampleBtn.disabled = true;
+                clearBtn.disabled = true;
+                setStatus('正在调用解释接口，请稍候...', 'loading');
+                resultEl.textContent = '请求处理中...';
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await readResponse(response);
+                    resultEl.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        setStatus('解释生成完成。', 'success');
+                    } else {
+                        setStatus('请求完成，但返回了错误包装。', 'error');
+                    }
+                } catch (error) {
+                    setStatus(`调用失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                } finally {
+                    submitBtn.disabled = false;
+                    sampleBtn.disabled = false;
+                    clearBtn.disabled = false;
+                }
+            }
+
+            formatSelect.addEventListener('change', () => {
+                if (!requestBody.value.trim()) {
+                    loadSample();
+                    return;
+                }
+                try {
+                    const current = JSON.parse(requestBody.value);
+                    current.format = formatSelect.value;
+                    requestBody.value = prettyPrint(current);
+                } catch (error) {
+                    setStatus(`当前 JSON 无法同步格式：${error.message}`, 'error');
+                }
+            });
+
+            submitBtn.addEventListener('click', submitExplain);
+            sampleBtn.addEventListener('click', loadSample);
+            clearBtn.addEventListener('click', () => {
+                requestBody.value = '';
+                resultEl.textContent = '尚未发起请求。';
+                setStatus('内容已清空。');
+            });
+
+            loadSample();
+        })();
+
+        // ---------- 规则推荐 ----------
+        (function initRecommend() {
+            const API_URL = 'http://127.0.0.1:8000/api/v1/recommend';
+            const SAMPLE = {
+                samples: [
+                    {
+                        email_id: 'mail-001',
+                        raw_email: 'From: attacker@evil.com\nTo: victim@company.com\nSubject: 紧急更新密码\n\n请立即点击链接更新您的密码。',
+                        label: 'phishing',
+                        notes: '伪装成内部通知的钓鱼邮件',
+                    },
+                    {
+                        email_id: 'mail-002',
+                        raw_email: 'From: ceo@company.com\nTo: finance@company.com\nSubject: 紧急转账\n\n请向以下账户转账。',
+                        label: 'bec',
+                        notes: 'CEO 欺诈（BEC）',
+                    },
+                ],
+            };
+
+            const requestBody = document.getElementById('rcRequest');
+            const submitBtn = document.getElementById('rcSubmit');
+            const sampleBtn = document.getElementById('rcSample');
+            const clearBtn = document.getElementById('rcClear');
+            const statusEl = document.getElementById('rcStatus');
+            const resultEl = document.getElementById('rcResult');
+
+            function setStatus(message, type = '') {
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`.trim();
+            }
+
+            function loadSample() {
+                requestBody.value = prettyPrint(SAMPLE);
+                setStatus('已填充示例数据。', 'success');
+            }
+
+            async function submitRecommend() {
+                let payload;
+                try {
+                    payload = JSON.parse(requestBody.value);
+                } catch (error) {
+                    setStatus(`JSON 解析失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                    return;
+                }
+
+                if (!payload || !Array.isArray(payload.samples) || payload.samples.length === 0) {
+                    setStatus('请求体需包含非空的 samples 数组。', 'error');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                sampleBtn.disabled = true;
+                clearBtn.disabled = true;
+                setStatus('正在调用推荐接口，请稍候...', 'loading');
+                resultEl.textContent = '请求处理中...';
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await readResponse(response);
+                    resultEl.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        setStatus('推荐生成完成。', 'success');
+                    } else {
+                        setStatus('请求完成，但返回了错误包装。', 'error');
+                    }
+                } catch (error) {
+                    setStatus(`调用失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                } finally {
+                    submitBtn.disabled = false;
+                    sampleBtn.disabled = false;
+                    clearBtn.disabled = false;
+                }
+            }
+
+            submitBtn.addEventListener('click', submitRecommend);
+            sampleBtn.addEventListener('click', loadSample);
+            clearBtn.addEventListener('click', () => {
+                requestBody.value = '';
+                resultEl.textContent = '尚未发起请求。';
+                setStatus('内容已清空。');
+            });
+
+            loadSample();
+        })();
+
+        // ---------- 人工反馈 ----------
+        (function initFeedback() {
+            const API_URL = 'http://127.0.0.1:8000/api/v1/feedback';
+
+            const emailId = document.getElementById('fbEmailId');
+            const labelSelect = document.getElementById('fbLabel');
+            const comment = document.getElementById('fbComment');
+            const originalResult = document.getElementById('fbOriginal');
+            const correctedResult = document.getElementById('fbCorrected');
+            const submitBtn = document.getElementById('fbSubmit');
+            const sampleBtn = document.getElementById('fbSample');
+            const clearBtn = document.getElementById('fbClear');
+            const statusEl = document.getElementById('fbStatus');
+            const resultEl = document.getElementById('fbResult');
+
+            function setStatus(message, type = '') {
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`.trim();
+            }
+
+            function loadSample() {
+                emailId.value = 'mail-001';
+                labelSelect.value = 'confirmed';
+                comment.value = '研判结果准确，威胁等级判定正确。';
+                originalResult.value = prettyPrint({
+                    email_id: 'mail-001',
+                    threat_score: 82,
+                    confidence: 0.91,
+                    threat_level: 'HIGH',
+                    threat_types: ['phishing'],
+                    summary: '邮件伪装成内部通知，诱导用户点击链接并输入账号密码。',
+                    evidence: [],
+                    dimension_scores: {},
+                });
+                correctedResult.value = '';
+                setStatus('已填充示例数据。', 'success');
+            }
+
+            function parseOptionalJson(value, fieldName) {
+                const text = value.trim();
+                if (!text) {
+                    return undefined;
+                }
+                try {
+                    return JSON.parse(text);
+                } catch (error) {
+                    throw new Error(`${fieldName} JSON 解析失败：${error.message}`);
+                }
+            }
+
+            function buildPayload() {
+                const payload = {
+                    email_id: emailId.value.trim(),
+                    label: labelSelect.value,
+                };
+
+                const commentText = comment.value.trim();
+                if (commentText) {
+                    payload.comment = commentText;
+                }
+
+                const original = parseOptionalJson(originalResult.value, 'original_result');
+                if (original !== undefined) {
+                    payload.original_result = original;
+                }
+
+                const corrected = parseOptionalJson(correctedResult.value, 'corrected_result');
+                if (corrected !== undefined) {
+                    payload.corrected_result = corrected;
+                }
+
+                return payload;
+            }
+
+            async function submitFeedback() {
+                if (!emailId.value.trim()) {
+                    setStatus('请先填写邮件 ID。', 'error');
+                    return;
+                }
+
+                let payload;
+                try {
+                    payload = buildPayload();
+                } catch (error) {
+                    setStatus(error.message, 'error');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                sampleBtn.disabled = true;
+                clearBtn.disabled = true;
+                setStatus('正在提交反馈，请稍候...', 'loading');
+                resultEl.textContent = '请求处理中...';
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await readResponse(response);
+                    resultEl.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        setStatus('反馈提交成功。', 'success');
+                    } else {
+                        setStatus('请求完成，但返回了错误包装。', 'error');
+                    }
+                } catch (error) {
+                    setStatus(`调用失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                } finally {
+                    submitBtn.disabled = false;
+                    sampleBtn.disabled = false;
+                    clearBtn.disabled = false;
+                }
+            }
+
+            submitBtn.addEventListener('click', submitFeedback);
+            sampleBtn.addEventListener('click', loadSample);
+            clearBtn.addEventListener('click', () => {
+                emailId.value = '';
+                labelSelect.value = 'confirmed';
+                comment.value = '';
+                originalResult.value = '';
+                correctedResult.value = '';
+                resultEl.textContent = '尚未发起请求。';
+                setStatus('内容已清空。');
+            });
+
+            loadSample();
+        })();
+
+        // ---------- 反馈统计 ----------
+        (function initStats() {
+            const API_URL = 'http://127.0.0.1:8000/api/v1/feedback/stats';
+
+            const fetchBtn = document.getElementById('stFetch');
+            const statusEl = document.getElementById('stStatus');
+            const resultEl = document.getElementById('stResult');
+
+            function setStatus(message, type = '') {
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`.trim();
+            }
+
+            async function fetchStats() {
+                fetchBtn.disabled = true;
+                setStatus('正在获取统计信息，请稍候...', 'loading');
+                resultEl.textContent = '请求处理中...';
+
+                try {
+                    const response = await fetch(API_URL, { method: 'GET' });
+                    const data = await readResponse(response);
+                    resultEl.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        setStatus('统计信息获取成功。', 'success');
+                    } else {
+                        setStatus('请求完成，但返回了错误包装。', 'error');
+                    }
+                } catch (error) {
+                    setStatus(`调用失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                } finally {
+                    fetchBtn.disabled = false;
+                }
+            }
+
+            fetchBtn.addEventListener('click', fetchStats);
+        })();
+
+        // ---------- 反馈导出 ----------
+        (function initExport() {
+            const API_URL = 'http://127.0.0.1:8000/api/v1/feedback/export';
+
+            const fetchBtn = document.getElementById('epFetch');
+            const downloadBtn = document.getElementById('epDownload');
+            const statusEl = document.getElementById('epStatus');
+            const resultEl = document.getElementById('epResult');
+
+            let lastExportText = '';
+
+            function setStatus(message, type = '') {
+                statusEl.textContent = message;
+                statusEl.className = `status ${type}`.trim();
+            }
+
+            async function fetchExport() {
+                fetchBtn.disabled = true;
+                downloadBtn.disabled = true;
+                setStatus('正在导出反馈数据，请稍候...', 'loading');
+                resultEl.textContent = '请求处理中...';
+
+                try {
+                    const response = await fetch(API_URL, { method: 'GET' });
+                    const data = await readResponse(response);
+                    resultEl.textContent = prettyPrint(data);
+
+                    if (!response.ok) {
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        return;
+                    }
+
+                    if (data && data.success) {
+                        lastExportText = typeof data.data === 'string' ? data.data : '';
+                        setStatus('反馈导出成功。', 'success');
+                    } else {
+                        lastExportText = '';
+                        setStatus('请求完成，但返回了错误包装。', 'error');
+                    }
+                } catch (error) {
+                    lastExportText = '';
+                    setStatus(`调用失败：${error.message}`, 'error');
+                    resultEl.textContent = prettyPrint({ success: false, error: { message: error.message } });
+                } finally {
+                    fetchBtn.disabled = false;
+                    downloadBtn.disabled = false;
+                }
+            }
+
+            function downloadJsonl() {
+                if (!lastExportText) {
+                    setStatus('暂无可下载的内容，请先导出。', 'error');
+                    return;
+                }
+
+                const blob = new Blob([lastExportText], { type: 'application/x-ndjson' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = 'feedback_export.jsonl';
+                document.body.appendChild(anchor);
+                anchor.click();
+                document.body.removeChild(anchor);
+                URL.revokeObjectURL(url);
+                setStatus('已开始下载 feedback_export.jsonl。', 'success');
+            }
+
+            fetchBtn.addEventListener('click', fetchExport);
+            downloadBtn.addEventListener('click', downloadJsonl);
+        })();
+    </script>
+</body>
+</html>
