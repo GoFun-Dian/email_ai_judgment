@@ -226,6 +226,7 @@
 
         <nav class="tabs">
             <button class="tab active" type="button" data-tab="judgment">邮件研判</button>
+            <button class="tab" type="button" data-tab="batch">批量研判</button>
             <button class="tab" type="button" data-tab="explain">研判解释</button>
             <button class="tab" type="button" data-tab="recommend">规则推荐</button>
             <button class="tab" type="button" data-tab="feedback">人工反馈</button>
@@ -241,7 +242,8 @@
 
                     <div class="field">
                         <label for="jdEmailId">邮件 ID</label>
-                        <input id="jdEmailId" type="text" placeholder="可选，例如 mail-001">
+                        <input id="jdEmailId" type="text" readonly placeholder="根据邮件原文自动生成">
+                        <small>邮件 ID 根据邮件 Message-ID 自动生成，仅用于展示，不可编辑。</small>
                     </div>
 
                     <div class="field">
@@ -277,6 +279,18 @@
                     <pre id="jdResult">尚未发起研判。</pre>
                 </div>
 
+                <div class="card">
+                    <h2>后续操作</h2>
+                    <p class="result-summary">研判完成后，可基于当前研判结果跳转到「研判解释」或「人工反馈」，并自动携带研判结果 JSON；未产生研判结果时按钮不可点击。</p>
+                    <div class="actions">
+                        <button id="jdExplainBtn" class="primary" type="button" disabled>研判解释</button>
+                        <button id="jdFeedbackBtn" class="primary" type="button" disabled>人工反馈</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 批量研判 -->
+            <section class="panel" id="panel-batch">
                 <div class="card">
                     <h2>批量研判</h2>
 
@@ -491,64 +505,50 @@
         }
 
         // ---------- 顶部标签切换 ----------
-        (function initTabs() {
-            const tabs = document.querySelectorAll('.tab');
-            const panels = document.querySelectorAll('.panel');
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+            const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+            const panel = document.getElementById(`panel-${tabName}`);
+            if (tab) {
+                tab.classList.add('active');
+            }
+            if (panel) {
+                panel.classList.add('active');
+            }
+        }
 
-            tabs.forEach((tab) => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach((t) => t.classList.remove('active'));
-                    panels.forEach((p) => p.classList.remove('active'));
-                    tab.classList.add('active');
-                    const panel = document.getElementById(`panel-${tab.dataset.tab}`);
-                    if (panel) {
-                        panel.classList.add('active');
-                    }
-                });
+        (function initTabs() {
+            document.querySelectorAll('.tab').forEach((tab) => {
+                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
             });
         })();
 
         // ---------- 邮件研判 ----------
         (function initJudgment() {
             const API_URL = 'http://127.0.0.1:8000/api/v1/judgment';
-            const BATCH_API_URL = 'http://127.0.0.1:8000/api/v1/judgment/batch';
 
             const emailFile = document.getElementById('jdEmailFile');
             const emailContent = document.getElementById('jdEmailContent');
             const emailId = document.getElementById('jdEmailId');
             const judgeBtn = document.getElementById('jdJudgeBtn');
             const clearBtn = document.getElementById('jdClearBtn');
+            const explainBtn = document.getElementById('jdExplainBtn');
+            const feedbackBtn = document.getElementById('jdFeedbackBtn');
             const statusEl = document.getElementById('jdStatus');
             const resultEl = document.getElementById('jdResult');
 
-            const batchContent = document.getElementById('jdBatchContent');
-            const batchBtn = document.getElementById('jdBatchBtn');
-            const batchSampleBtn = document.getElementById('jdBatchSampleBtn');
-            const batchClearBtn = document.getElementById('jdBatchClearBtn');
-            const batchStatus = document.getElementById('jdBatchStatus');
-            const batchResult = document.getElementById('jdBatchResult');
-
-            const BATCH_SAMPLE = [
-                {
-                    email_id: 'mail-batch-001',
-                    raw: 'From: a@example.com\nTo: b@example.com\nSubject: hello\n\nhello',
-                },
-                {
-                    email_id: 'mail-batch-002',
-                    raw: 'From: attacker@evil.com\nTo: victim@example.com\nSubject: 紧急更新密码\n\n请立即点击链接更新您的密码。',
-                },
-            ];
-
-            let lastAutoEmailId = '';
+            let lastJudgmentResult = null;
 
             function setStatus(message, type = '') {
                 statusEl.textContent = message;
                 statusEl.className = `status ${type}`.trim();
             }
 
-            function setBatchStatus(message, type = '') {
-                batchStatus.textContent = message;
-                batchStatus.className = `status ${type}`.trim();
+            function updateActionButtons() {
+                const hasResult = Boolean(lastJudgmentResult);
+                explainBtn.disabled = !hasResult;
+                feedbackBtn.disabled = !hasResult;
             }
 
             function md5(input) {
@@ -748,31 +748,10 @@
 
             function updateAutoEmailId() {
                 const raw = emailContent.value.trim();
-                const derivedEmailId = raw ? deriveEmailIdFromContent(raw) : '';
-
-                if (!derivedEmailId) {
-                    if (emailId.value.trim() === lastAutoEmailId) {
-                        emailId.value = '';
-                    }
-                    lastAutoEmailId = '';
-                    return;
-                }
-
-                const currentValue = emailId.value.trim();
-                if (!currentValue || currentValue === lastAutoEmailId) {
-                    emailId.value = derivedEmailId;
-                }
-                lastAutoEmailId = derivedEmailId;
+                emailId.value = raw ? deriveEmailIdFromContent(raw) : '';
             }
 
             emailContent.addEventListener('input', updateAutoEmailId);
-
-            emailId.addEventListener('input', () => {
-                if (emailId.value.trim() !== lastAutoEmailId) {
-                    return;
-                }
-                lastAutoEmailId = emailId.value.trim();
-            });
 
             emailFile.addEventListener('change', async () => {
                 const file = emailFile.files && emailFile.files[0];
@@ -794,8 +773,9 @@
                 emailFile.value = '';
                 emailId.value = '';
                 emailContent.value = '';
-                lastAutoEmailId = '';
+                lastJudgmentResult = null;
                 resultEl.textContent = '尚未发起研判。';
+                updateActionButtons();
                 setStatus('内容已清空。');
             });
 
@@ -810,7 +790,6 @@
 
                 if (derivedEmailId && emailId.value.trim() === '') {
                     emailId.value = derivedEmailId;
-                    lastAutoEmailId = derivedEmailId;
                 }
 
                 judgeBtn.disabled = true;
@@ -836,16 +815,24 @@
                     resultEl.textContent = prettyPrint(data);
 
                     if (!response.ok) {
+                        lastJudgmentResult = null;
+                        updateActionButtons();
                         setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
                         return;
                     }
 
                     if (data && data.success) {
+                        lastJudgmentResult = data.data || null;
+                        updateActionButtons();
                         setStatus('研判完成。', 'success');
                     } else {
+                        lastJudgmentResult = null;
+                        updateActionButtons();
                         setStatus('研判完成，但返回了错误包装。', 'error');
                     }
                 } catch (error) {
+                    lastJudgmentResult = null;
+                    updateActionButtons();
                     setStatus(`调用失败：${error.message}`, 'error');
                     resultEl.textContent = prettyPrint({
                         success: false,
@@ -859,15 +846,73 @@
                 }
             });
 
+            explainBtn.addEventListener('click', () => {
+                if (!lastJudgmentResult) {
+                    return;
+                }
+
+                const exRequest = document.getElementById('exRequest');
+                const exFormat = document.getElementById('exFormat');
+                exRequest.value = prettyPrint({ result: lastJudgmentResult, format: exFormat.value });
+                switchTab('explain');
+            });
+
+            feedbackBtn.addEventListener('click', () => {
+                if (!lastJudgmentResult) {
+                    return;
+                }
+
+                const fbEmailId = document.getElementById('fbEmailId');
+                const fbLabel = document.getElementById('fbLabel');
+                const fbComment = document.getElementById('fbComment');
+                const fbOriginal = document.getElementById('fbOriginal');
+                const fbCorrected = document.getElementById('fbCorrected');
+
+                fbEmailId.value = (lastJudgmentResult && lastJudgmentResult.email_id) || '';
+                fbLabel.value = 'confirmed';
+                fbComment.value = '';
+                fbOriginal.value = prettyPrint(lastJudgmentResult);
+                fbCorrected.value = '';
+                switchTab('feedback');
+            });
+        })();
+
+        // ---------- 批量研判 ----------
+        (function initBatch() {
+            const BATCH_API_URL = 'http://127.0.0.1:8000/api/v1/judgment/batch';
+
+            const batchContent = document.getElementById('jdBatchContent');
+            const batchBtn = document.getElementById('jdBatchBtn');
+            const batchSampleBtn = document.getElementById('jdBatchSampleBtn');
+            const batchClearBtn = document.getElementById('jdBatchClearBtn');
+            const batchStatus = document.getElementById('jdBatchStatus');
+            const batchResult = document.getElementById('jdBatchResult');
+
+            const BATCH_SAMPLE = [
+                {
+                    email_id: 'mail-batch-001',
+                    raw: 'From: a@example.com\nTo: b@example.com\nSubject: hello\n\nhello',
+                },
+                {
+                    email_id: 'mail-batch-002',
+                    raw: 'From: attacker@evil.com\nTo: victim@example.com\nSubject: 紧急更新密码\n\n请立即点击链接更新您的密码。',
+                },
+            ];
+
+            function setStatus(message, type = '') {
+                batchStatus.textContent = message;
+                batchStatus.className = `status ${type}`.trim();
+            }
+
             batchSampleBtn.addEventListener('click', () => {
                 batchContent.value = prettyPrint(BATCH_SAMPLE);
-                setBatchStatus('已填充批量示例数据。', 'success');
+                setStatus('已填充批量示例数据。', 'success');
             });
 
             batchClearBtn.addEventListener('click', () => {
                 batchContent.value = '';
                 batchResult.textContent = '尚未发起批量研判。';
-                setBatchStatus('内容已清空。');
+                setStatus('内容已清空。');
             });
 
             batchBtn.addEventListener('click', async () => {
@@ -875,21 +920,21 @@
                 try {
                     parsed = JSON.parse(batchContent.value.trim());
                 } catch (error) {
-                    setBatchStatus(`JSON 解析失败：${error.message}`, 'error');
+                    setStatus(`JSON 解析失败：${error.message}`, 'error');
                     batchResult.textContent = prettyPrint({ success: false, error: { message: error.message } });
                     return;
                 }
 
                 const emails = Array.isArray(parsed) ? parsed : parsed.emails;
                 if (!Array.isArray(emails) || emails.length === 0) {
-                    setBatchStatus('请输入非空的邮件数组。', 'error');
+                    setStatus('请输入非空的邮件数组。', 'error');
                     return;
                 }
 
                 batchBtn.disabled = true;
                 batchSampleBtn.disabled = true;
                 batchClearBtn.disabled = true;
-                setBatchStatus('正在调用批量研判接口，请稍候...', 'loading');
+                setStatus('正在调用批量研判接口，请稍候...', 'loading');
                 batchResult.textContent = '请求处理中...';
 
                 try {
@@ -904,13 +949,13 @@
                     batchResult.textContent = prettyPrint(data);
 
                     if (!response.ok) {
-                        setBatchStatus(`接口返回错误：HTTP ${response.status}`, 'error');
+                        setStatus(`接口返回错误：HTTP ${response.status}`, 'error');
                         return;
                     }
 
-                    setBatchStatus(`批量研判完成，共 ${emails.length} 封。`, 'success');
+                    setStatus(`批量研判完成，共 ${emails.length} 封。`, 'success');
                 } catch (error) {
-                    setBatchStatus(`调用失败：${error.message}`, 'error');
+                    setStatus(`调用失败：${error.message}`, 'error');
                     batchResult.textContent = prettyPrint({
                         success: false,
                         error: {
