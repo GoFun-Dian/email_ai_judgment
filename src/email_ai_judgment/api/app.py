@@ -18,7 +18,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Enterprise Email AI Judgment Agent", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["http://localhost:8080"],
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
