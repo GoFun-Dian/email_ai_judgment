@@ -24,6 +24,9 @@ from email_ai_judgment.utils.logging import log_step
 logger = logging.getLogger(__name__)
 
 class AIJudgmentEngine:
+    MAX_CONCURRENT = 5  # 同时最多 5 个模型调用
+    MAX_BATCH_SIZE = 50  # 单次最多 50 封
+
     def __init__(
         self,
         settings: Settings | None = None,
@@ -80,4 +83,20 @@ class AIJudgmentEngine:
 
     async def abatch(self, emails: list[str | dict[str, Any]]) -> list[JudgmentResponse[JudgmentResult]]:
         """异步批量异步执行研判。"""
-        return await asyncio.gather(*(self.ajudge(email) for email in emails))
+        if len(emails) > self.MAX_BATCH_SIZE:
+            raise ValueError(f"单次最多研判 {self.MAX_BATCH_SIZE} 封，当前 {len(emails)} 封")
+
+        semaphore = asyncio.Semaphore(self.MAX_CONCURRENT)
+
+        async def judge_one(email):
+            async with semaphore:
+                try:
+                    return await self.ajudge(email)
+                except Exception as exc:
+                    logger.debug("abatch_judgment_error", exc_info=True)
+                    return JudgmentResponse[JudgmentResult](success=False, data=None, error=unknown_error("abatch_judgment_pipeline", exc))
+
+        return await asyncio.gather(
+            *(judge_one(email) for email in emails),
+            return_exceptions=True,
+        )
