@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from email_ai_judgment.utils.attachment_encrypted import looks_password_protected
 from email.message import EmailMessage
 
 from email_ai_judgment.models.email import AttachmentFeature
@@ -26,14 +27,8 @@ def extract_attachments(message: EmailMessage) -> list[AttachmentFeature]:
                 md5=hashlib.md5(payload).hexdigest(),
                 sha256=hashlib.sha256(payload).hexdigest(),
                 has_macro=extension in MACRO_EXTENSIONS or b"vbaProject" in payload[:200000],
-                is_password_protected=_looks_password_protected(payload, lower_name),
+                is_password_protected=looks_password_protected(payload, lower_name),
                 is_suspicious_type=extension in SUSPICIOUS_EXTENSIONS,
             )
         )
     return attachments
-
-def _looks_password_protected(payload: bytes, filename: str) -> bool:
-    markers = [b"EncryptedPackage", b"/Encrypt", b"password"]
-    if any(marker.lower() in payload[:200000].lower() for marker in markers):
-        return True
-    return filename.endswith(".zip") and payload.startswith(b"PK") and b"\x01\x00\x00\x00" in payload[:100]
